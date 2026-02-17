@@ -21,8 +21,7 @@ import {
 } from "@/components/ui/select"
 import { addItem } from "@/lib/food-store"
 import { mutateAll } from "@/hooks/use-food-items"
-import type { FoodCategory, StorageLocation } from "@/lib/types"
-import { CATEGORY_LABELS, CATEGORY_EMOJIS } from "@/lib/types"
+import type { StorageLocation } from "@/lib/types"
 
 interface AddItemDialogProps {
   open: boolean
@@ -32,34 +31,48 @@ interface AddItemDialogProps {
 
 export function AddItemDialog({ open, onOpenChange, defaultLocation }: AddItemDialogProps) {
   const [name, setName] = useState("")
-  const [category, setCategory] = useState<FoodCategory | "">("")
-  const [expirationDate, setExpirationDate] = useState("")
+  const [expiryDate, setExpiryDate] = useState("")
+  const [expiryTime, setExpiryTime] = useState("")
   const [location, setLocation] = useState<StorageLocation | "">(defaultLocation ?? "")
+  const [notes, setNotes] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  function handleSubmit(e: React.FormEvent) {
+  // If we have a default location (user is on fridge/freezer tab), use it
+  const effectiveLocation = defaultLocation || location
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!name || !category || !expirationDate || !location) return
+    if (!name || !effectiveLocation) return
 
-    addItem({
-      name,
-      category: category as FoodCategory,
-      expirationDate: new Date(expirationDate).toISOString(),
-      location: location as StorageLocation,
-    })
+    setIsSubmitting(true)
+    try {
+      const today = new Date().toISOString().split("T")[0]
+      await addItem({
+        name,
+        location: effectiveLocation as StorageLocation,
+        entry_date: today,
+        entry_time: expiryTime || null,
+        expiry_date: expiryDate || null,
+        notes: notes || null,
+      })
 
-    mutateAll()
-    resetForm()
-    onOpenChange(false)
+      mutateAll()
+      resetForm()
+      onOpenChange(false)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   function resetForm() {
     setName("")
-    setCategory("")
-    setExpirationDate("")
+    setExpiryDate("")
+    setExpiryTime("")
     setLocation(defaultLocation ?? "")
+    setNotes("")
   }
 
-  const isValid = name && category && expirationDate && location
+  const isValid = name && effectiveLocation
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -67,7 +80,7 @@ export function AddItemDialog({ open, onOpenChange, defaultLocation }: AddItemDi
         <DialogHeader>
           <DialogTitle>Add New Item</DialogTitle>
           <DialogDescription>
-            Track a new item in your fridge or freezer.
+            Track a new item in your {defaultLocation || "fridge or freezer"}.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -83,53 +96,61 @@ export function AddItemDialog({ open, onOpenChange, defaultLocation }: AddItemDi
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label>Category</Label>
-            <Select
-              value={category}
-              onValueChange={(val) => setCategory(val as FoodCategory)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a category" />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(CATEGORY_LABELS) as FoodCategory[]).map(
-                  (key) => (
-                    <SelectItem key={key} value={key}>
-                      <span className="inline-flex items-center gap-2">
-                        <span>{CATEGORY_EMOJIS[key]}</span>
-                        <span>{CATEGORY_LABELS[key]}</span>
-                      </span>
-                    </SelectItem>
-                  )
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="exp-date">Expiration Date & Time</Label>
+            <Label htmlFor="exp-date">
+              Expiration Date
+              <span className="ml-1 text-xs text-muted-foreground font-normal">(optional)</span>
+            </Label>
             <Input
               id="exp-date"
-              type="datetime-local"
-              value={expirationDate}
-              onChange={(e) => setExpirationDate(e.target.value)}
+              type="date"
+              value={expiryDate}
+              onChange={(e) => setExpiryDate(e.target.value)}
             />
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label>Storage Location</Label>
-            <Select
-              value={location}
-              onValueChange={(val) => setLocation(val as StorageLocation)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select location" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="fridge">Fridge</SelectItem>
-                <SelectItem value="freezer">Freezer</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label htmlFor="exp-time">
+              Expiration Time
+              <span className="ml-1 text-xs text-muted-foreground font-normal">(optional)</span>
+            </Label>
+            <Input
+              id="exp-time"
+              type="time"
+              value={expiryTime}
+              onChange={(e) => setExpiryTime(e.target.value)}
+            />
+          </div>
+
+          {/* Only show location picker if user is on "home" tab (no defaultLocation) */}
+          {!defaultLocation && (
+            <div className="flex flex-col gap-2">
+              <Label>Storage Location</Label>
+              <Select
+                value={location}
+                onValueChange={(val) => setLocation(val as StorageLocation)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select location" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fridge">Fridge</SelectItem>
+                  <SelectItem value="freezer">Freezer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="notes">
+              Notes
+              <span className="ml-1 text-xs text-muted-foreground font-normal">(optional)</span>
+            </Label>
+            <Input
+              id="notes"
+              placeholder="e.g. Opened yesterday"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
           </div>
 
           <DialogFooter className="pt-2">
@@ -143,8 +164,8 @@ export function AddItemDialog({ open, onOpenChange, defaultLocation }: AddItemDi
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={!isValid}>
-              Add Item
+            <Button type="submit" disabled={!isValid || isSubmitting}>
+              {isSubmitting ? "Adding..." : "Add Item"}
             </Button>
           </DialogFooter>
         </form>

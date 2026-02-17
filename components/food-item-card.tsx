@@ -12,7 +12,6 @@ import {
 } from "@/lib/food-store"
 import { mutateAll } from "@/hooks/use-food-items"
 import type { FoodItem } from "@/lib/types"
-import { CATEGORY_LABELS, CATEGORY_EMOJIS, CATEGORY_BG_COLORS } from "@/lib/types"
 
 interface FoodItemCardProps {
   item: FoodItem
@@ -20,24 +19,26 @@ interface FoodItemCardProps {
 }
 
 export function FoodItemCard({ item, isFinished = false }: FoodItemCardProps) {
-  const expDate = new Date(item.expirationDate)
-  const status = getExpirationStatus(item.expirationDate)
-  const daysLeft = getDaysLeft(item.expirationDate)
-  const dateStr = format(expDate, "EEE, MMM d")
-  const timeStr = format(expDate, "h:mm a")
+  const status = getExpirationStatus(item.expiry_date)
+  const daysLeft = getDaysLeft(item.expiry_date)
 
-  function handleMarkFinished() {
-    markAsFinished(item.id)
+  const dateStr = item.expiry_date
+    ? format(new Date(item.expiry_date), "EEE, MMM d")
+    : null
+  const timeStr = item.entry_time || null
+
+  async function handleMarkFinished() {
+    await markAsFinished(item.id)
     mutateAll()
   }
 
-  function handleDelete() {
-    deleteItem(item.id)
+  async function handleDelete() {
+    await deleteItem(item.id)
     mutateAll()
   }
 
-  function handleRestore() {
-    restoreItem(item.id)
+  async function handleRestore() {
+    await restoreItem(item.id)
     mutateAll()
   }
 
@@ -47,7 +48,9 @@ export function FoodItemCard({ item, isFinished = false }: FoodItemCardProps) {
       ? "border-l-red-400"
       : status === "warning"
         ? "border-l-amber-400"
-        : "border-l-emerald-400"
+        : status === "none"
+          ? "border-l-stone-300"
+          : "border-l-emerald-400"
 
   const badgeStyle = isFinished
     ? "bg-stone-100 text-stone-500"
@@ -55,15 +58,23 @@ export function FoodItemCard({ item, isFinished = false }: FoodItemCardProps) {
       ? "bg-red-50 text-red-600 border-red-200"
       : status === "warning"
         ? "bg-amber-50 text-amber-600 border-amber-200"
-        : "bg-emerald-50 text-emerald-600 border-emerald-200"
+        : status === "none"
+          ? "bg-stone-100 text-stone-500 border-stone-200"
+          : "bg-emerald-50 text-emerald-600 border-emerald-200"
 
   const badgeText = isFinished
     ? "Consumed"
     : status === "expired"
-      ? `Expired ${Math.abs(daysLeft)}d ago`
-      : daysLeft === 0
-        ? "Today"
-        : `${daysLeft}d left`
+      ? `Expired ${Math.abs(daysLeft!)}d ago`
+      : status === "warning"
+        ? daysLeft === 0
+          ? "Today"
+          : `${daysLeft}d left`
+        : status === "none"
+          ? "No expiry"
+          : daysLeft === 0
+            ? "Today"
+            : `${daysLeft}d left`
 
   return (
     <div
@@ -74,16 +85,6 @@ export function FoodItemCard({ item, isFinished = false }: FoodItemCardProps) {
       )}
     >
       <div className="flex items-start gap-3 p-4">
-        <div
-          className={cn(
-            "flex size-10 shrink-0 items-center justify-center rounded-full text-lg",
-            CATEGORY_BG_COLORS[item.category]
-          )}
-          aria-hidden="true"
-        >
-          {CATEGORY_EMOJIS[item.category]}
-        </div>
-
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div>
@@ -95,9 +96,11 @@ export function FoodItemCard({ item, isFinished = false }: FoodItemCardProps) {
               >
                 {item.name}
               </h3>
-              <p className="text-sm text-muted-foreground">
-                {CATEGORY_LABELS[item.category]}
-              </p>
+              {item.notes && (
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {item.notes}
+                </p>
+              )}
             </div>
 
             <span
@@ -117,14 +120,18 @@ export function FoodItemCard({ item, isFinished = false }: FoodItemCardProps) {
           </div>
 
           <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              <CalendarDays className="size-3.5" />
-              {dateStr}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Clock className="size-3.5" />
-              {timeStr}
-            </span>
+            {dateStr && (
+              <span className="inline-flex items-center gap-1">
+                <CalendarDays className="size-3.5" />
+                {dateStr}
+              </span>
+            )}
+            {timeStr && (
+              <span className="inline-flex items-center gap-1">
+                <Clock className="size-3.5" />
+                {timeStr}
+              </span>
+            )}
           </div>
         </div>
       </div>

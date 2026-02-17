@@ -2,7 +2,7 @@ import useSWR, { mutate as globalMutate } from "swr"
 import {
   getActiveItems,
   getFinishedItems,
-  cleanupExpiredFinished,
+  getAllActiveItems,
 } from "@/lib/food-store"
 import type { StorageLocation } from "@/lib/types"
 
@@ -25,10 +25,7 @@ export function useFreezerItems() {
 export function useFinishedItems() {
   return useSWR(
     `${ITEMS_KEY_PREFIX}-finished`,
-    () => {
-      cleanupExpiredFinished()
-      return getFinishedItems()
-    },
+    () => getFinishedItems(),
     { refreshInterval: 60000 }
   )
 }
@@ -41,8 +38,17 @@ export function useLocationItems(location: StorageLocation) {
   )
 }
 
+export function useAllActiveItems() {
+  return useSWR(
+    `${ITEMS_KEY_PREFIX}-all-active`,
+    () => getAllActiveItems(),
+    { refreshInterval: 60000 }
+  )
+}
+
 export function mutateAll() {
   globalMutate(`${ITEMS_KEY_PREFIX}-fridge`)
   globalMutate(`${ITEMS_KEY_PREFIX}-freezer`)
   globalMutate(`${ITEMS_KEY_PREFIX}-finished`)
+  globalMutate(`${ITEMS_KEY_PREFIX}-all-active`)
 }
