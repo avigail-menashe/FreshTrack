@@ -1,101 +1,121 @@
-import type { FoodItem, StorageLocation, FoodCategory } from "./types"
+import { createClient } from "@/lib/supabase/client"
+import type { FoodItem, StorageLocation } from "./types"
 
-const STORAGE_KEY = "food-expiry-items"
+export async function addItem(data: {
+  name: string
+  location: StorageLocation
+  entry_date: string
+  entry_time?: string | null
+  expiry_date?: string | null
+  notes?: string | null
+}): Promise<FoodItem | null> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
 
-function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+  const { data: item, error } = await supabase
+    .from("food_items")
+    .insert({
+      user_id: user.id,
+      name: data.name,
+      location: data.location,
+      entry_date: data.entry_date,
+      entry_time: data.entry_time || null,
+      expiry_date: data.expiry_date || null,
+      notes: data.notes || null,
+    })
+    .select()
+    .single()
+
+  if (error) {
+    console.error("Error adding item:", error)
+    return null
+  }
+  return item
 }
 
-export function getItems(): FoodItem[] {
-  if (typeof window === "undefined") return []
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-    return JSON.parse(raw) as FoodItem[]
-  } catch {
+export async function markAsFinished(id: string): Promise<void> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from("food_items")
+    .update({ is_finished: true })
+    .eq("id", id)
+
+  if (error) console.error("Error marking item as finished:", error)
+}
+
+export async function deleteItem(id: string): Promise<void> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from("food_items")
+    .delete()
+    .eq("id", id)
+
+  if (error) console.error("Error deleting item:", error)
+}
+
+export async function restoreItem(id: string): Promise<void> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from("food_items")
+    .update({ is_finished: false })
+    .eq("id", id)
+
+  if (error) console.error("Error restoring item:", error)
+}
+
+export async function getActiveItems(location: StorageLocation): Promise<FoodItem[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("food_items")
+    .select("*")
+    .eq("location", location)
+    .eq("is_finished", false)
+    .order("expiry_date", { ascending: true, nullsFirst: false })
+
+  if (error) {
+    console.error("Error fetching active items:", error)
     return []
   }
+  return data || []
 }
 
-function saveItems(items: FoodItem[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
-}
+export async function getFinishedItems(): Promise<FoodItem[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("food_items")
+    .select("*")
+    .eq("is_finished", true)
+    .order("created_at", { ascending: false })
 
-export function addItem(data: {
-  name: string
-  category: FoodCategory
-  expirationDate: string
-  location: StorageLocation
-}): FoodItem {
-  const items = getItems()
-  const newItem: FoodItem = {
-    id: generateId(),
-    ...data,
+  if (error) {
+    console.error("Error fetching finished items:", error)
+    return []
   }
-  items.push(newItem)
-  saveItems(items)
-  return newItem
+  return data || []
 }
 
-export function markAsFinished(id: string): void {
-  const items = getItems()
-  const idx = items.findIndex((item) => item.id === id)
-  if (idx !== -1) {
-    items[idx].finishedAt = new Date().toISOString()
-    saveItems(items)
+export async function getAllActiveItems(): Promise<FoodItem[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("food_items")
+    .select("*")
+    .eq("is_finished", false)
+    .order("expiry_date", { ascending: true, nullsFirst: false })
+
+  if (error) {
+    console.error("Error fetching all active items:", error)
+    return []
   }
-}
-
-export function deleteItem(id: string): void {
-  const items = getItems().filter((item) => item.id !== id)
-  saveItems(items)
-}
-
-export function restoreItem(id: string): void {
-  const items = getItems()
-  const idx = items.findIndex((item) => item.id === id)
-  if (idx !== -1) {
-    delete items[idx].finishedAt
-    saveItems(items)
-  }
-}
-
-export function cleanupExpiredFinished(): void {
-  const now = new Date()
-  const items = getItems().filter((item) => {
-    if (!item.finishedAt) return true
-    const finishedAt = new Date(item.finishedAt)
-    const hoursSinceFinished =
-      (now.getTime() - finishedAt.getTime()) / (1000 * 60 * 60)
-    return hoursSinceFinished < 24
-  })
-  saveItems(items)
-}
-
-export function getActiveItems(location: StorageLocation): FoodItem[] {
-  return getItems()
-    .filter((item) => item.location === location && !item.finishedAt)
-    .sort(
-      (a, b) =>
-        new Date(a.expirationDate).getTime() -
-        new Date(b.expirationDate).getTime()
-    )
-}
-
-export function getFinishedItems(): FoodItem[] {
-  return getItems()
-    .filter((item) => !!item.finishedAt)
-    .sort(
-      (a, b) =>
-        new Date(b.finishedAt!).getTime() - new Date(a.finishedAt!).getTime()
-    )
+  return data || []
 }
 
 export function getExpirationStatus(
-  expirationDate: string
-): "expired" | "warning" | "ok" {
+  expiryDate: string | null
+): "expired" | "warning" | "ok" | "none" {
+  if (!expiryDate) return "none"
   const now = new Date()
-  const expDate = new Date(expirationDate)
+  const expDate = new Date(expiryDate)
   const hoursUntilExpiry =
     (expDate.getTime() - now.getTime()) / (1000 * 60 * 60)
 
@@ -104,21 +124,11 @@ export function getExpirationStatus(
   return "ok"
 }
 
-export function getDaysLeft(expirationDate: string): number {
+export function getDaysLeft(expiryDate: string | null): number | null {
+  if (!expiryDate) return null
   const now = new Date()
-  const expDate = new Date(expirationDate)
+  const expDate = new Date(expiryDate)
   return Math.ceil(
     (expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
   )
-}
-
-export function getExpiringCount(location?: StorageLocation): number {
-  const items = getItems().filter((item) => !item.finishedAt)
-  const filtered = location
-    ? items.filter((item) => item.location === location)
-    : items
-  return filtered.filter((item) => {
-    const status = getExpirationStatus(item.expirationDate)
-    return status === "warning" || status === "expired"
-  }).length
 }

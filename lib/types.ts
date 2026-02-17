@@ -15,11 +15,15 @@ export type FoodCategory =
 
 export interface FoodItem {
   id: string
+  user_id: string
   name: string
-  category: FoodCategory
-  expirationDate: string
   location: StorageLocation
-  finishedAt?: string
+  entry_date: string
+  entry_time: string | null
+  expiry_date: string | null
+  notes: string | null
+  is_finished: boolean
+  created_at: string
 }
 
 export const CATEGORY_LABELS: Record<FoodCategory, string> = {

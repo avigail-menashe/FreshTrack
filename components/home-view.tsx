@@ -1,9 +1,12 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { format } from "date-fns"
-import { AlertTriangle, ChevronRight, Home, Snowflake, CheckCircle2 } from "lucide-react"
+import { AlertTriangle, ChevronRight, Snowflake, CheckCircle2, LogOut } from "lucide-react"
 import { useFridgeItems, useFreezerItems, useFinishedItems } from "@/hooks/use-food-items"
 import { getExpirationStatus } from "@/lib/food-store"
+import { createClient } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
 
 interface HomeViewProps {
   onNavigate: (tab: "fridge" | "freezer" | "finished") => void
@@ -35,35 +38,62 @@ export function HomeView({ onNavigate }: HomeViewProps) {
   const { data: fridgeItems = [] } = useFridgeItems()
   const { data: freezerItems = [] } = useFreezerItems()
   const { data: finishedItems = [] } = useFinishedItems()
+  const [displayName, setDisplayName] = useState<string | null>(null)
+  const router = useRouter()
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setDisplayName(user.user_metadata?.display_name || null)
+      }
+    })
+  }, [])
 
   const allActive = [...fridgeItems, ...freezerItems]
   const expiringCount = allActive.filter((item) => {
-    const status = getExpirationStatus(item.expirationDate)
+    const status = getExpirationStatus(item.expiry_date)
     return status === "warning" || status === "expired"
   }).length
 
   const fridgeExpiring = fridgeItems.filter((item) => {
-    const status = getExpirationStatus(item.expirationDate)
+    const status = getExpirationStatus(item.expiry_date)
     return status === "warning" || status === "expired"
   }).length
 
   const freezerExpiring = freezerItems.filter((item) => {
-    const status = getExpirationStatus(item.expirationDate)
+    const status = getExpirationStatus(item.expiry_date)
     return status === "warning" || status === "expired"
   }).length
 
   const today = format(new Date(), "EEEE, MMMM d")
 
+  async function handleLogout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push("/auth/login")
+  }
+
   return (
     <div className="flex flex-col gap-4 p-4">
-      <header className="flex flex-col gap-1">
-        <span className="text-xs font-bold uppercase tracking-wider text-primary">
-          FreshTrack
-        </span>
-        <h1 className="text-2xl font-bold text-foreground text-balance">
-          Your Kitchen
-        </h1>
-        <p className="text-sm text-muted-foreground">{today}</p>
+      <header className="flex items-start justify-between">
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-bold uppercase tracking-wider text-primary">
+            FreshTrack
+          </span>
+          <h1 className="text-2xl font-bold text-foreground text-balance">
+            {displayName ? `Hi, ${displayName}` : "Your Kitchen"}
+          </h1>
+          <p className="text-sm text-muted-foreground">{today}</p>
+        </div>
+        <button
+          onClick={handleLogout}
+          className="mt-1 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          aria-label="Sign out"
+        >
+          <LogOut className="size-4" />
+          <span className="sr-only sm:not-sr-only">Sign Out</span>
+        </button>
       </header>
 
       {expiringCount > 0 && (
