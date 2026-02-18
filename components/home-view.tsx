@@ -42,12 +42,16 @@ export function HomeView({ onNavigate }: HomeViewProps) {
   const router = useRouter()
 
   useEffect(() => {
-    const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        setDisplayName(user.user_metadata?.display_name || null)
-      }
-    })
+    try {
+      const supabase = createClient()
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+          setDisplayName(user.user_metadata?.display_name || null)
+        }
+      })
+    } catch {
+      // Supabase not available
+    }
   }, [])
 
   const allActive = [...fridgeItems, ...freezerItems]
