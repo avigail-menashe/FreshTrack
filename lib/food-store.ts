@@ -1,9 +1,10 @@
 import { createClient } from "@/lib/supabase/client"
-import type { FoodItem, StorageLocation } from "./types"
+import type { FoodItem, FoodCategory, StorageLocation } from "./types"
 
 export async function addItem(data: {
   name: string
   location: StorageLocation
+  category?: FoodCategory
   entry_date: string
   entry_time?: string | null
   expiry_date?: string | null
@@ -19,6 +20,7 @@ export async function addItem(data: {
       user_id: user.id,
       name: data.name,
       location: data.location,
+      category: data.category || "other",
       entry_date: data.entry_date,
       entry_time: data.entry_time || null,
       expiry_date: data.expiry_date || null,
