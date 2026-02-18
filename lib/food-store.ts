@@ -11,28 +11,36 @@ export async function addItem(data: {
   notes?: string | null
 }): Promise<FoodItem | null> {
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  console.log("[v0] addItem - user:", user?.id, "authError:", authError?.message)
+  if (!user) {
+    console.log("[v0] addItem - No user found, cannot insert")
+    return null
+  }
+
+  const insertData = {
+    user_id: user.id,
+    name: data.name,
+    location: data.location,
+    category: data.category || "other",
+    entry_date: data.entry_date,
+    entry_time: data.entry_time || null,
+    expiry_date: data.expiry_date || null,
+    notes: data.notes || null,
+  }
+  console.log("[v0] addItem - inserting:", JSON.stringify(insertData))
 
   const { data: item, error } = await supabase
     .from("food_items")
-    .insert({
-      user_id: user.id,
-      name: data.name,
-      location: data.location,
-      category: data.category || "other",
-      entry_date: data.entry_date,
-      entry_time: data.entry_time || null,
-      expiry_date: data.expiry_date || null,
-      notes: data.notes || null,
-    })
+    .insert(insertData)
     .select()
     .single()
 
   if (error) {
-    console.error("Error adding item:", error)
+    console.error("[v0] addItem - Error:", error.message, error.details, error.hint)
     return null
   }
+  console.log("[v0] addItem - Success:", item?.id)
   return item
 }
 
