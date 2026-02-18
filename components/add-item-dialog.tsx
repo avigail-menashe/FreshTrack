@@ -52,18 +52,21 @@ export function AddItemDialog({ open, onOpenChange, defaultLocation }: AddItemDi
   const [category, setCategory] = useState<FoodCategory>("other")
   const [notes, setNotes] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // If we have a default location (user is on fridge/freezer tab), use it
   const effectiveLocation = defaultLocation || location
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!name || !effectiveLocation) return
+    if (!name || !effectiveLocation || !expiryDate) return
 
     setIsSubmitting(true)
+    setError(null)
     try {
       const today = new Date().toISOString().split("T")[0]
-      await addItem({
+      console.log("[v0] handleSubmit - submitting:", { name, location: effectiveLocation, category, expiryDate })
+      const result = await addItem({
         name,
         location: effectiveLocation as StorageLocation,
         category,
@@ -72,10 +75,19 @@ export function AddItemDialog({ open, onOpenChange, defaultLocation }: AddItemDi
         expiry_date: expiryDate || null,
         notes: notes || null,
       })
+      console.log("[v0] handleSubmit - result:", result)
+
+      if (!result) {
+        setError("Failed to add item. Please make sure you are logged in.")
+        return
+      }
 
       mutateAll()
       resetForm()
       onOpenChange(false)
+    } catch (err) {
+      console.error("[v0] handleSubmit - error:", err)
+      setError("An unexpected error occurred. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
@@ -88,9 +100,10 @@ export function AddItemDialog({ open, onOpenChange, defaultLocation }: AddItemDi
     setLocation(defaultLocation ?? "")
     setCategory("other")
     setNotes("")
+    setError(null)
   }
 
-  const isValid = name && effectiveLocation
+  const isValid = name && effectiveLocation && expiryDate
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -138,13 +151,14 @@ export function AddItemDialog({ open, onOpenChange, defaultLocation }: AddItemDi
           <div className="flex flex-col gap-2">
             <Label htmlFor="exp-date">
               Expiration Date
-              <span className="ml-1 text-xs text-muted-foreground font-normal">(optional)</span>
+              <span className="ml-1 text-xs text-destructive font-normal">*</span>
             </Label>
             <Input
               id="exp-date"
               type="date"
               value={expiryDate}
               onChange={(e) => setExpiryDate(e.target.value)}
+              required
             />
           </div>
 
@@ -192,6 +206,10 @@ export function AddItemDialog({ open, onOpenChange, defaultLocation }: AddItemDi
               onChange={(e) => setNotes(e.target.value)}
             />
           </div>
+
+          {error && (
+            <p className="text-sm text-destructive">{error}</p>
+          )}
 
           <DialogFooter className="pt-2">
             <Button
