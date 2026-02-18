@@ -18,6 +18,7 @@ export interface FoodItem {
   user_id: string
   name: string
   location: StorageLocation
+  category: FoodCategory
   entry_date: string
   entry_time: string | null
   expiry_date: string | null

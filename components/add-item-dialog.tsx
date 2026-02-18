@@ -21,7 +21,22 @@ import {
 } from "@/components/ui/select"
 import { addItem } from "@/lib/food-store"
 import { mutateAll } from "@/hooks/use-food-items"
-import type { StorageLocation } from "@/lib/types"
+import type { StorageLocation, FoodCategory } from "@/lib/types"
+import { CATEGORY_LABELS, CATEGORY_EMOJIS } from "@/lib/types"
+
+const FOOD_CATEGORIES: FoodCategory[] = [
+  "dairy",
+  "vegetables",
+  "fruits",
+  "meat",
+  "fish",
+  "frozen",
+  "beverages",
+  "grains",
+  "snacks",
+  "condiments",
+  "other",
+]
 
 interface AddItemDialogProps {
   open: boolean
@@ -34,6 +49,7 @@ export function AddItemDialog({ open, onOpenChange, defaultLocation }: AddItemDi
   const [expiryDate, setExpiryDate] = useState("")
   const [expiryTime, setExpiryTime] = useState("")
   const [location, setLocation] = useState<StorageLocation | "">(defaultLocation ?? "")
+  const [category, setCategory] = useState<FoodCategory>("other")
   const [notes, setNotes] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -50,6 +66,7 @@ export function AddItemDialog({ open, onOpenChange, defaultLocation }: AddItemDi
       await addItem({
         name,
         location: effectiveLocation as StorageLocation,
+        category,
         entry_date: today,
         entry_time: expiryTime || null,
         expiry_date: expiryDate || null,
@@ -69,6 +86,7 @@ export function AddItemDialog({ open, onOpenChange, defaultLocation }: AddItemDi
     setExpiryDate("")
     setExpiryTime("")
     setLocation(defaultLocation ?? "")
+    setCategory("other")
     setNotes("")
   }
 
@@ -93,6 +111,28 @@ export function AddItemDialog({ open, onOpenChange, defaultLocation }: AddItemDi
               onChange={(e) => setName(e.target.value)}
               autoFocus
             />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label>Category</Label>
+            <Select
+              value={category}
+              onValueChange={(val) => setCategory(val as FoodCategory)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent>
+                {FOOD_CATEGORIES.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    <span className="flex items-center gap-2">
+                      <span>{CATEGORY_EMOJIS[cat]}</span>
+                      <span>{CATEGORY_LABELS[cat]}</span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex flex-col gap-2">

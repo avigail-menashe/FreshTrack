@@ -12,6 +12,7 @@ import {
 } from "@/lib/food-store"
 import { mutateAll } from "@/hooks/use-food-items"
 import type { FoodItem } from "@/lib/types"
+import { CATEGORY_EMOJIS } from "@/lib/types"
 
 interface FoodItemCardProps {
   item: FoodItem
@@ -94,6 +95,7 @@ export function FoodItemCard({ item, isFinished = false }: FoodItemCardProps) {
                   isFinished && "line-through text-muted-foreground"
                 )}
               >
+                <span className="mr-1.5">{CATEGORY_EMOJIS[item.category] || CATEGORY_EMOJIS.other}</span>
                 {item.name}
               </h3>
               {item.notes && (
